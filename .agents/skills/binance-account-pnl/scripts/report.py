@@ -187,14 +187,18 @@ def upct(p):
     en = abs(float(p["positionAmt"])) * float(p["entryPrice"])
     return (100 * float(p["unrealizedProfit"]) / en) if en else 0.0
 ranked = sorted(P, key=upct, reverse=True)
-shown = ranked if len(ranked) <= 24 else ranked[:12] + [None] + ranked[-12:]
-pmax = max((abs(upct(p)) for p in shown if p), default=1) or 1
+hid = (12, len(ranked) - 12) if len(ranked) > 24 else None  # middle rows ship hidden, behind a toggle
+pmax = max((abs(upct(p)) for p in ranked), default=1) or 1
 prows = []
-for p in shown:
-    if p is None:
-        prows.append(f'<tr class="skip"><td colspan="6">… {len(ranked)-24} more between …</td></tr>'); continue
+for i, p in enumerate(ranked):
+    if hid and i == hid[0]:
+        n = hid[1] - hid[0]
+        prows.append(f'<tr class="skip"><td colspan="6"><button id="midbtn" aria-expanded="false" '
+                     f'data-more="… {n} more between — show all …" data-less="… hide the {n} middle positions …">'
+                     f'… {n} more between — show all …</button></td></tr>')
+    mid = ' class="mid" hidden' if hid and hid[0] <= i < hid[1] else ""
     amt, en, u = float(p["positionAmt"]), abs(float(p["positionAmt"])) * float(p["entryPrice"]), float(p["unrealizedProfit"])
-    prows.append(f'<tr><td>{esc(p["symbol"])}</td><td>{"long" if amt > 0 else "short"}</td><td class="r">{en:,.0f}</td>'
+    prows.append(f'<tr{mid}><td>{esc(p["symbol"])}</td><td>{"long" if amt > 0 else "short"}</td><td class="r">{en:,.0f}</td>'
                  f'<td class="r">{u:+,.2f}</td><td class="r">{upct(p):+.2f}%</td><td>{bar(upct(p), pmax)}</td></tr>')
 ptab = ("".join(prows)) or '<tr><td colspan="6">No open positions.</td></tr>'
 ups = sum(float(p["unrealizedProfit"]) > 0 for p in P)
@@ -256,7 +260,10 @@ h1{font-size:19px;margin:0}
 .t td{padding:5px 10px;border-bottom:1px solid var(--grid)}
 .t tr:last-child td{border-bottom:none}
 .t tr.em td{font-weight:650}
-.t tr.skip td{color:var(--muted);text-align:center;font-size:12.5px}
+.t tr.skip td{color:var(--muted);text-align:center;font-size:12.5px;padding:0}
+.t tr.skip button{background:none;border:none;color:var(--ink2);font:inherit;font-size:12.5px;cursor:pointer;
+ width:100%;padding:6px 10px}
+.t tr.skip button:hover{text-decoration:underline}
 .bcell{position:relative;height:14px;min-width:120px}
 .bcell::before{content:"";position:absolute;left:50%;top:-1px;bottom:-1px;width:1px;background:var(--axis)}
 .b{position:absolute;top:0;height:100%}
@@ -303,6 +310,10 @@ wrap.addEventListener('keydown',e=>{if(e.key==='Escape')return hide();
  e.preventDefault();show(i);});
 wrap.addEventListener('focus',()=>{if(idx<0)show(D.t.length-1);});
 wrap.addEventListener('blur',hide);
+const mb=document.getElementById('midbtn');
+if(mb)mb.addEventListener('click',()=>{const open=mb.getAttribute('aria-expanded')!=='true';
+ document.querySelectorAll('tr.mid').forEach(r=>r.hidden=!open);
+ mb.setAttribute('aria-expanded',open);mb.textContent=open?mb.dataset.less:mb.dataset.more;});
 })();
 """
 data = {"t": grid, "s": PC, "names": [n for n, _ in SERIES], "cap": capital,
