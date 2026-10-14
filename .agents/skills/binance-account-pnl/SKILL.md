@@ -1,13 +1,16 @@
 ---
 name: binance-account-pnl
-description: "Read-only status check of a Binance USD-M futures account (testnet, demo or live): balances, margin, positions, open orders, and realised / unrealised / funding P&L as % of combined capital (all stablecoin deposits together), with a single historical chart. Use when asked for the account's status, P&L percentages, or a P&L graph. GET requests only; never trades."
+description: "Read-only status check of a Binance USD-M futures account (testnet, demo or live): balances, margin, positions, open orders, and realised / unrealised / funding P&L as % of combined capital (all stablecoin deposits together), rendered as one self-contained HTML report (cumulative P&L chart, P&L breakdown, open positions). Use when asked for the account's status, P&L percentages, or a P&L report/graph. GET requests only; never trades."
 ---
 
 # binance-account-pnl
 
 Produces, from GET requests only:
 - `summary.md` / `summary.json`: balances, margin, positions (long/short/net/gross), open orders, and P&L in USD and % of capital.
-- `pnl_history.png`: ONE chart with four cumulative lines, all as % of capital: **Total**, **Unrealised**, **Realised (closed trades − fees)**, **Funding** (dashed).
+- `pnl_report.html`: ONE self-contained page (no external requests, works offline) with three sections:
+  1. the cumulative P&L chart — four lines as % of capital: **Total**, **Unrealised**, **Realised (closed trades − fees)**, **Funding** — with a hover/keyboard crosshair tooltip;
+  2. the P&L breakdown (USD, % of capital, diverging bars);
+  3. open positions — best 12 / worst 12 by unrealised % of entry notional (all of them when ≤ 24).
 
 ## Rules
 1. **Read only.** `scripts/bn_readonly.py` has a GET-only client with an endpoint allow-list. Never add a write endpoint, and never call `/fapi/v1/order`, `/leverage`, `/marginType`, `/positionSide`, transfers or withdrawals. If the user asks for any action on the account, refuse and say this skill is read-only.
@@ -23,11 +26,13 @@ S=<skill dir>/scripts; OUT=/home/user/scratch_bn/run_$(date -u +%Y%m%dT%H%M)
 mkdir -p $OUT
 # 1. fetch (1-3 min for ~150 symbols -> use execute_shell_background, then poll)
 BN_KEY='SECRET{BINANCE_DEMO_API_KEY}' BN_SECRET='SECRET{BINANCE_DEMO_SECRET_KEY}' \
-  python3 $S/fetch_account.py --env testnet --out $OUT/data.json [--days 90]
+  python3 $S/fetch_account.py --env testnet --out $OUT/data.json [--days 10]
 # 2. report (offline, seconds)
 python3 $S/report.py $OUT/data.json --outdir $OUT
 ```
-Then `publish_file $OUT/pnl_history.png` and embed the snippet the tool returns. Needs `matplotlib` (`pip install matplotlib` if missing).
+Then `publish_file $OUT/pnl_report.html` and link it. Both scripts are stdlib-only (no pip installs).
+The look-back defaults to **10 days** to cap fetch time and compute; pass `--days` only if the user
+asks for a longer window, and say the report will be slower.
 
 ## How the numbers are built
 - **Realised P&L, commission, funding:** exact values from `/fapi/v1/income`, summed by type in USD (stablecoins at 1:1).
@@ -41,7 +46,7 @@ Then `publish_file $OUT/pnl_history.png` and embed the snippet the tool returns.
 2. The capital base, spelled out.
 3. A table with closed-trade P&L, commission, realised net, funding, unrealised and total, in both USD and %.
 4. One line on positions: count, long/short, net, gross (and as a multiple of margin balance), open orders, largest and best/worst names.
-5. The chart.
+5. The published `pnl_report.html` link (it carries the chart, breakdown and positions).
 6. Caveats, only if they apply: testnet prices, a short history, a big gap between the rebuilt and exchange unrealised value, excluded assets, any venue that returned 451.
 
 ## Pitfalls

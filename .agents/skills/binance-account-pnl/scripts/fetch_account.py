@@ -1,6 +1,6 @@
 """Pull everything needed for a status report + P&L history into one JSON file (read-only).
 
-usage: BN_KEY=... BN_SECRET=... python3 fetch_account.py --env testnet --out data.json [--days 90]
+usage: BN_KEY=... BN_SECRET=... python3 fetch_account.py --env testnet --out data.json [--days 10]
 """
 import argparse, json, sys, time
 sys.path.insert(0, __import__("os").path.dirname(__file__))
@@ -9,7 +9,7 @@ from bn_readonly import ReadOnlyClient
 ap = argparse.ArgumentParser()
 ap.add_argument("--env", default="testnet", help="testnet | demo | live | full base URL")
 ap.add_argument("--out", required=True)
-ap.add_argument("--days", type=int, default=90, help="income history look-back (API max ~90 days per query window)")
+ap.add_argument("--days", type=int, default=10, help="look-back in days (default 10 to cap fetch/compute; API max ~90)")
 a = ap.parse_args()
 
 c = ReadOnlyClient(a.env)
